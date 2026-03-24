@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Reader | Abdessamad Safha</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --panel-bg: #121212;
+            --text-primary: #ffffff;
+            --text-secondary: #888888;
+            --text-muted: #333333;
+            --border-color: #2a2a2a;
+            --accent: #ffffff;
+            --error-bg: #e5e5e5;
+            --error-text: #000000;
+        }
+
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-color) var(--bg-color);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 40px 20px 20px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+        
+        .main-wrapper {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            max-width: 1600px;
+            flex-grow: 1;
+        }
+        
+        .pdf-panel {
+            flex: 1;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: none;
+            overflow: hidden;
+        }
+        .pdf-panel iframe { width: 100%; height: 100%; border: none; filter: grayscale(100%) contrast(1.2); }
+
+        .game-panel {
+            flex: 1;
+            max-width: 900px;
+            background: var(--panel-bg);
+            padding: 40px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            margin: 0 auto;
+        }
+
+        #setup-zone { display: flex; flex-direction: column; gap: 20px; align-items: center; }
+        h2 { font-weight: 400; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 5px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; width: 100%; text-align: center;}
+        
+        /* New Introductory Text Styling */
+        .intro-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-align: center;
+            max-width: 85%;
+            font-weight: 400;
+        }
+        
+        #drop-zone {
+            border: 1px dashed var(--border-color); border-radius: 4px; padding: 50px;
+            text-align: center; cursor: pointer; transition: all 0.3s ease; color: var(--text-secondary); font-weight: 400; width: 100%;
+        }
+        #drop-zone:hover, #drop-zone.hover { border-color: var(--accent); color: var(--accent); }
+        
+        textarea { 
+            width: 100%; height: 120px; padding: 15px; 
+            background: transparent; border: 1px solid var(--border-color); border-radius: 4px; 
+            color: var(--text-primary); font-family: 'Inter', sans-serif; resize: vertical; outline: none; transition: 0.3s;
+        }
+        textarea:focus { border-color: var(--accent); }
+
+        button { 
+            padding: 12px 24px; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: uppercase;
+            background-color: transparent; color: var(--text-primary); 
+            border: 1px solid var(--border-color); border-radius: 2px; 
+            cursor: pointer; transition: all 0.3s ease; width: 100%;
+        }
+        button:hover { background-color: var(--text-primary); color: var(--bg-color); border-color: var(--text-primary); }
+
+        #game-zone { display: none; flex-direction: column; height: 100%; }
+        
+        .stats { 
+            display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 400; 
+            letter-spacing: 0.05em; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); color: var(--text-secondary);
+        }
+        .stats span { color: var(--text-primary); font-weight: 600; }
+        
+        .meter-container { width: 100%; background-color: var(--border-color); margin-bottom: 25px; height: 2px; position: relative; }
+        .meter-fill { height: 100%; background-color: var(--accent); width: 0%; transition: width 0.2s ease-out; }
+
+        .modifiers { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
+        .mod-btn { 
+            background-color: transparent; color: var(--text-secondary); border: 1px solid var(--border-color); 
+            padding: 6px 16px; border-radius: 50px; font-size: 0.8rem; cursor: pointer; transition: 0.3s; text-transform: none; letter-spacing: normal; width: auto;
+        }
+        .mod-btn.active { background-color: var(--text-primary); color: var(--bg-color); border-color: var(--text-primary); }
+
+        #text-display {
+            font-size: 1.5rem; line-height: 2em; letter-spacing: 0.02em; min-height: 200px; flex-grow: 1;
+            overflow-y: auto; resize: vertical; margin-bottom: 30px; user-select: none;
+            padding: 20px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-color);
+            transition: all 0.3s ease;
+        }
+        
+        .word { margin-right: 0.4em; display: inline-block; cursor: pointer; padding: 0 2px; transition: all 0.2s ease; border-radius: 2px;}
+        .word:hover { background-color: var(--border-color); }
+        .word.correct { color: var(--text-muted); }
+        .word.current { background-color: var(--border-color); color: var(--text-primary); }
+        
+        .word b { font-weight: 800; color: var(--text-primary); }
+        .word.correct b { color: var(--text-secondary); }
+
+        #text-display.focus-mode .word:not(.current) { opacity: 0.15; filter: blur(1px); }
+        #text-display.focus-mode:hover .word:not(.current) { opacity: 0.8; filter: blur(0px); }
+
+        .char.correct { color: var(--text-secondary); }
+        .char.error { background-color: var(--error-bg); color: var(--error-text); }
+
+        #type-input { 
+            width: 100%; font-size: 1.5rem; padding: 15px; background: transparent; color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 4px; outline: none; font-family: 'Inter', sans-serif; transition: border-color 0.3s;
+        }
+        #type-input:focus { border-color: var(--accent); }
+        #type-input.error { background-color: var(--error-bg); color: var(--error-text); border-color: var(--error-bg); }
+
+        footer {
+            margin-top: auto;
+            padding-top: 40px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            line-height: 1.6;
+        }
+        footer span {
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+<div class="main-wrapper">
+    <div class="pdf-panel" id="pdf-panel">
+        <iframe id="pdf-iframe" src=""></iframe>
+    </div>
+
+    <div class="game-panel">
+        <div id="setup-zone">
+            <h2>Focus Reader</h2>
+            <p class="intro-text">
+                Transform passive reading into an active, tactile experience. Designed for deep engagement with dense texts, this tool paces your reading to your keystrokes—eliminating skimming and improving retention.
+            </p>
+            <div id="drop-zone">
+                Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>
+                <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+            </div>
+            <textarea id="manual-text" placeholder="Paste manual text here..."></textarea>
+            <button id="start-btn">Initialize Session</button>
+        </div>
+
+        <div id="game-zone">
+            <div class="stats">
+                <div>Speed: <span id="wpm">0</span> WPM</div>
+                <div>Accuracy: <span id="accuracy">100</span>%</div>
+                <div>Duration: <span id="time">0:00</span></div>
+            </div>
+            
+            <div class="meter-container"><div class="meter-fill" id="meter-fill"></div></div>
+
+            <div class="modifiers">
+                <button id="btn-ghost" class="mod-btn">Ghost Typing</button>
+                <button id="btn-focus" class="mod-btn">Focus Mode</button>
+                <button id="btn-bionic" class="mod-btn">Bionic Reading</button>
+                <button id="btn-space" class="mod-btn">Auto-Advance</button>
+            </div>
+
+            <div id="text-display"></div>
+            <input type="text" id="type-input" autocomplete="off" placeholder="Begin typing...">
+            <button id="reset-btn" style="margin-top: 20px; align-self: flex-start; width: auto;">End Session</button>
+        </div>
+    </div>
+</div>
+
+<footer>
+    <span>Abdessamad Safha</span><br>
+    5th-Year Architecture Student, ENA Rabat<br>
+    6bdessmad@gmail.com
+</footer>
+
+<script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    let words = [];
+    let currentWordIndex = 0;
+    let startTime = null;
+    let timerInterval = null;
+    let isPlaying = false;
+    let totalTypedChars = 0;
+    let totalErrors = 0;
+
+    const setupZone = document.getElementById('setup-zone');
+    const gameZone = document.getElementById('game-zone');
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const manualText = document.getElementById('manual-text');
+    const startBtn = document.getElementById('start-btn');
+    const textDisplay = document.getElementById('text-display');
+    const typeInput = document.getElementById('type-input');
+    const pdfPanel = document.getElementById('pdf-panel');
+    const pdfIframe = document.getElementById('pdf-iframe');
+    
+    const wpmDisplay = document.getElementById('wpm');
+    const accuracyDisplay = document.getElementById('accuracy');
+    const timeDisplay = document.getElementById('time');
+    const meterFill = document.getElementById('meter-fill');
+    const resetBtn = document.getElementById('reset-btn');
+
+    const btnGhost = document.getElementById('btn-ghost');
+    const btnFocus = document.getElementById('btn-focus');
+    const btnBionic = document.getElementById('btn-bionic');
+    const btnSpace = document.getElementById('btn-space');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('hover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'); });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault(); dropZone.classList.remove('hover');
+        if (e.dataTransfer.files.length) handlePDF(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) handlePDF(e.target.files[0]);
+    });
+
+    async function handlePDF(file) {
+        if (file.type !== 'application/pdf') return alert('Please upload a PDF file.');
+        dropZone.innerHTML = "Processing Document...";
+        
+        const fileURL = URL.createObjectURL(file);
+        pdfIframe.src = fileURL;
+        pdfPanel.style.display = 'block';
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map(item => item.str).join(' ') + ' ';
+        }
+        manualText.value = fullText.replace(/\s+/g, ' ').trim();
+        dropZone.innerHTML = `Loaded: ${file.name}<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">Replace file</span>`;
+    }
+
+    [btnGhost, btnSpace].forEach(btn => {
+        btn.addEventListener('click', () => { btn.classList.toggle('active'); typeInput.focus(); });
+    });
+
+    btnFocus.addEventListener('click', () => {
+        btnFocus.classList.toggle('active');
+        textDisplay.classList.toggle('focus-mode');
+        typeInput.focus();
+    });
+
+    btnBionic.addEventListener('click', () => {
+        btnBionic.classList.toggle('active');
+        if (gameZone.style.display === 'flex') renderState();
+        typeInput.focus();
+    });
+
+    function getFormattedWord(word) {
+        if (!btnBionic.classList.contains('active') || word.length === 0) return word;
+        const mid = Math.ceil(word.length / 2);
+        return `<b>${word.slice(0, mid)}</b>${word.slice(mid)}`;
+    }
+
+    startBtn.addEventListener('click', () => {
+        const text = manualText.value.trim();
+        if (!text) return alert("Please input text or drop a PDF document.");
+        words = text.split(/\s+/);
+        initGame();
+    });
+
+    function initGame() {
+        setupZone.style.display = 'none';
+        gameZone.style.display = 'flex';
+        currentWordIndex = 0;
+        startTime = null;
+        isPlaying = false;
+        totalTypedChars = 0;
+        totalErrors = 0;
+        
+        typeInput.value = '';
+        typeInput.className = '';
+        wpmDisplay.innerText = '0';
+        accuracyDisplay.innerText = '100';
+        timeDisplay.innerText = '0:00';
+        meterFill.style.width = '0%';
+        clearInterval(timerInterval);
+        
+        if(btnFocus.classList.contains('active')) textDisplay.classList.add('focus-mode');
+        
+        initDOM();
+        renderState();
+        typeInput.focus();
+    }
+
+    function initDOM() {
+        textDisplay.innerHTML = '';
+        words.forEach((word, index) => {
+            const span = document.createElement('span');
+            span.className = 'word';
+            span.id = `word-${index}`;
+            textDisplay.appendChild(span);
+        });
+    }
+
+    function renderState() {
+        const allWords = textDisplay.querySelectorAll('.word');
+        allWords.forEach((el, index) => {
+            if (index < currentWordIndex) {
+                el.className = 'word correct';
+                el.innerHTML = getFormattedWord(words[index]);
+            } else if (index === currentWordIndex) {
+                el.className = 'word current';
+                el.innerHTML = ''; 
+                for (let i = 0; i < words[index].length; i++) {
+                    const charSpan = document.createElement('span');
+                    charSpan.className = 'char';
+                    if (btnBionic.classList.contains('active') && i < Math.ceil(words[index].length / 2)) {
+                        charSpan.style.fontWeight = '800';
+                    }
+                    charSpan.innerText = words[index][i];
+                    el.appendChild(charSpan);
+                }
+            } else {
+                el.className = 'word';
+                el.innerHTML = getFormattedWord(words[index]);
+            }
+        });
+        scrollToCurrentWord();
+        updateProgressMeter();
+    }
+
+    function updateProgressMeter() {
+        if (words.length === 0) return;
+        meterFill.style.width = `${Math.min(100, (currentWordIndex / words.length) * 100)}%`;
+    }
+
+    function scrollToCurrentWord() {
+        const currentWordEl = document.getElementById(`word-${currentWordIndex}`);
+        if (currentWordEl) {
+            currentWordEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    textDisplay.addEventListener('click', (e) => {
+        const wordEl = e.target.closest('.word');
+        if (wordEl) {
+            const index = parseInt(wordEl.id.replace('word-', ''));
+            if (!isNaN(index)) {
+                currentWordIndex = index;
+                typeInput.value = '';
+                typeInput.classList.remove('error');
+                renderState();
+                typeInput.focus();
+            }
+        }
+    });
+
+    typeInput.addEventListener('input', (e) => {
+        const ignoreSpace = btnSpace.classList.contains('active');
+        const ghostTyping = btnGhost.classList.contains('active');
+        const targetWord = words[currentWordIndex];
+        let typedText = typeInput.value;
+
+        if (ghostTyping && e.data !== null) {
+            if (typedText.length > targetWord.length) typedText = targetWord + " "; 
+            else typedText = targetWord.substring(0, typedText.length);
+            typeInput.value = typedText;
+        }
+
+        if (!isPlaying && typedText.length > 0) {
+            isPlaying = true;
+            startTime = new Date();
+            timerInterval = setInterval(updateTimerAndWPM, 1000);
+        }
+
+        scrollToCurrentWord();
+        let typedTrimmed = ignoreSpace ? typedText.replace(/\s/g, "") : typedText.trimLeft();
+        let isError = !targetWord.startsWith(typedTrimmed) && typedTrimmed !== "";
+
+        if (e.data !== null && !ghostTyping) { 
+            totalTypedChars++;
+            if (isError) totalErrors++;
+        }
+        
+        accuracyDisplay.innerText = totalTypedChars === 0 ? "100" : Math.max(0, ((totalTypedChars - totalErrors) / totalTypedChars) * 100).toFixed(1);
+
+        let advance = (ignoreSpace || ghostTyping) && typedTrimmed === targetWord && targetWord !== "";
+        if (typedText.endsWith(' ') && typedText.trim() === targetWord) advance = true;
+
+        if (advance) {
+            currentWordIndex++;
+            typeInput.value = '';
+            typeInput.className = '';
+            if (currentWordIndex >= words.length) endGame();
+            else renderState();
+            return;
+        }
+
+        typeInput.className = isError ? 'error' : '';
+        const currentWordEl = document.getElementById(`word-${currentWordIndex}`);
+        if (currentWordEl) {
+            const charSpans = currentWordEl.querySelectorAll('.char');
+            charSpans.forEach((charSpan, i) => {
+                charSpan.className = 'char';
+                if (i < typedTrimmed.length) charSpan.classList.add(typedTrimmed[i] === targetWord[i] ? 'correct' : 'error');
+            });
+        }
+    });
+
+    function updateTimerAndWPM() {
+        if (!isPlaying) return;
+        const timeElapsedSec = (Date.now() - startTime) / 1000;
+        let charsTyped = typeInput.value.length;
+        for (let i = 0; i < currentWordIndex; i++) charsTyped += words[i].length + 1;
+        
+        wpmDisplay.innerText = Math.round((charsTyped / 5) / (timeElapsedSec / 60)) || 0;
+        timeDisplay.innerText = `${Math.floor(timeElapsedSec / 60)}:${Math.floor(timeElapsedSec % 60).toString().padStart(2, '0')}`;
+    }
+
+    function endGame() {
+        isPlaying = false;
+        clearInterval(timerInterval);
+        typeInput.disabled = true;
+        typeInput.placeholder = "Session Complete.";
+        updateTimerAndWPM();
+        updateProgressMeter();
+    }
+
+    resetBtn.addEventListener('click', () => {
+        setupZone.style.display = 'flex';
+        gameZone.style.display = 'none';
+        pdfPanel.style.display = 'none';
+        pdfIframe.src = '';
+        typeInput.disabled = false;
+        manualText.value = '';
+        dropZone.innerHTML = `Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>`;
+    });
+</script>
+
+</body>
+</html>
