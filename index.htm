@@ -39,16 +39,17 @@
         
         .main-wrapper { display: flex; gap: 30px; width: 100%; max-width: 1600px; flex-grow: 1; }
         
+        /* Flipped Layout: Game Panel first, PDF Panel second */
+        .game-panel {
+            flex: 1; max-width: 900px; background: var(--panel-bg); padding: 40px;
+            border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column;
+        }
+
         .pdf-panel {
             flex: 1; background: var(--panel-bg); border: 1px solid var(--border-color);
             border-radius: 4px; display: none; overflow: hidden;
         }
         .pdf-panel iframe { width: 100%; height: 100%; border: none; filter: grayscale(100%) contrast(1.2); }
-
-        .game-panel {
-            flex: 1; max-width: 900px; background: var(--panel-bg); padding: 40px;
-            border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; margin: 0 auto;
-        }
 
         #setup-zone { display: flex; flex-direction: column; gap: 20px; align-items: center; }
         h2 { font-weight: 400; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 5px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; width: 100%; text-align: center;}
@@ -61,7 +62,6 @@
         }
         #drop-zone:hover, #drop-zone.hover { border-color: var(--accent); color: var(--accent); }
         
-        /* PDF Page Options */
         #pdf-options {
             display: none; width: 100%; text-align: center; gap: 15px; align-items: center; justify-content: center;
             padding: 15px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--panel-bg);
@@ -133,17 +133,13 @@
         #type-input:focus { border-color: var(--accent); }
         #type-input.error { background-color: var(--error-bg); color: var(--error-text); border-color: var(--error-bg); }
 
-        footer { margin-top: auto; padding-top: 40px; text-align: center; font-size: 0.8rem; color: var(--text-muted); letter-spacing: 0.05em; line-height: 1.6; }
+        footer { margin-top: auto; padding-top: 40px; text-align: center; font-size: 0.8rem; color: var(--text-muted); letter-spacing: 0.05em; line-height: 1.6; width: 100%; }
         footer span { color: var(--text-secondary); }
     </style>
 </head>
 <body>
 
 <div class="main-wrapper">
-    <div class="pdf-panel" id="pdf-panel">
-        <iframe id="pdf-iframe" src=""></iframe>
-    </div>
-
     <div class="game-panel">
         <div id="setup-zone">
             <h2>Focus Reader</h2>
@@ -167,6 +163,7 @@
             <div class="stats">
                 <div>Speed: <span id="wpm">0</span> WPM</div>
                 <div>Accuracy: <span id="accuracy">100</span>%</div>
+                <div style="color: var(--accent);">Page: <span id="current-page">-</span></div>
                 <div>Duration: <span id="time">0:00</span></div>
             </div>
             
@@ -185,6 +182,10 @@
             <button id="reset-btn" style="margin-top: 20px; align-self: flex-start; width: auto;">End Session</button>
         </div>
     </div>
+
+    <div class="pdf-panel" id="pdf-panel">
+        <iframe id="pdf-iframe" src=""></iframe>
+    </div>
 </div>
 
 <footer>
@@ -196,10 +197,9 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    // Global Data Architecture
-    let extractedPdfData = []; // Stores objects: { text: "word", page: 1 }
-    let wordsData = []; // The filtered dataset currently in use
-    let words = []; // The flat string array used by the engine
+    let extractedPdfData = []; 
+    let wordsData = []; 
+    let words = []; 
     
     let currentWordIndex = 0;
     let startTime = null;
@@ -208,6 +208,7 @@
     let totalTypedChars = 0;
     let totalErrors = 0;
     let currentPdfUrl = null;
+    let lastSyncedPage = 1; // Track the page we are currently viewing
 
     const setupZone = document.getElementById('setup-zone');
     const gameZone = document.getElementById('game-zone');
@@ -225,6 +226,7 @@
     
     const wpmDisplay = document.getElementById('wpm');
     const accuracyDisplay = document.getElementById('accuracy');
+    const currentPageDisplay = document.getElementById('current-page');
     const timeDisplay = document.getElementById('time');
     const meterFill = document.getElementById('meter-fill');
     const resetBtn = document.getElementById('reset-btn');
@@ -260,7 +262,6 @@
             extractedPdfData = [];
             let fullTextForManual = '';
             
-            // Map each word to its specific page number during extraction
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
@@ -274,11 +275,9 @@
                 fullTextForManual += pageText + ' ';
             }
             
-            // Update UI
             manualText.value = fullTextForManual.replace(/\s+/g, ' ').trim();
             dropZone.innerHTML = `Loaded: ${file.name}<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">Replace file</span>`;
             
-            // Show PDF page options
             pdfOptions.style.display = 'flex';
             startPageInput.max = pdf.numPages;
             startPageInput.value = 1;
@@ -319,14 +318,15 @@
         wordsData = [];
 
         if (isPdfMode) {
-            // Filter the data based on the selected starting page
             const startPageNum = parseInt(startPageInput.value) || 1;
             wordsData = extractedPdfData.filter(item => item.page >= startPageNum);
             words = wordsData.map(item => item.text);
             
             if (words.length === 0) return alert("No text found from this page onward.");
             
-            // Instantly sync iframe to the starting page
+            lastSyncedPage = startPageNum;
+            currentPageDisplay.innerText = lastSyncedPage;
+            
             if (currentPdfUrl) {
                 pdfIframe.src = currentPdfUrl + '#page=' + startPageNum;
             }
@@ -334,8 +334,8 @@
             const text = manualText.value.trim();
             if (!text) return alert("Please input text or drop a PDF document.");
             words = text.split(/\s+/).filter(w => w.length > 0);
-            // Default page 1 for manual text
             wordsData = words.map(w => ({ text: w, page: 1 }));
+            currentPageDisplay.innerText = "1";
         }
 
         initGame();
@@ -371,10 +371,24 @@
             const span = document.createElement('span');
             span.className = 'word';
             span.id = `word-${index}`;
-            // Inject the calculated page number into the DOM
             span.setAttribute('data-page', wordsData[index].page);
             textDisplay.appendChild(span);
         });
+    }
+
+    function syncPdfPageIfNeeded() {
+        if (!wordsData[currentWordIndex]) return;
+        
+        const currentWordPage = wordsData[currentWordIndex].page;
+        if (currentWordPage !== lastSyncedPage) {
+            lastSyncedPage = currentWordPage;
+            currentPageDisplay.innerText = lastSyncedPage; // Update UI stat
+            
+            // Auto-scroll the iframe
+            if (currentPdfUrl) {
+                pdfIframe.src = currentPdfUrl + '#page=' + lastSyncedPage;
+            }
+        }
     }
 
     function renderState() {
@@ -402,6 +416,7 @@
         });
         scrollToCurrentWord();
         updateProgressMeter();
+        syncPdfPageIfNeeded();
     }
 
     function updateProgressMeter() {
@@ -413,16 +428,9 @@
         const currentWordEl = document.getElementById(`word-${currentWordIndex}`);
         if (currentWordEl) {
             currentWordEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // Optional: Auto-sync PDF page as you type into new pages
-            // const currentPage = currentWordEl.getAttribute('data-page');
-            // if (currentPdfUrl && !pdfIframe.src.endsWith('#page=' + currentPage)) {
-            //     pdfIframe.src = currentPdfUrl + '#page=' + currentPage;
-            // }
         }
     }
 
-    // Exact Page Click-to-Sync
     textDisplay.addEventListener('click', (e) => {
         const wordEl = e.target.closest('.word');
         if (wordEl) {
@@ -433,12 +441,6 @@
                 typeInput.classList.remove('error');
                 renderState();
                 typeInput.focus();
-
-                // Read the exact page number mapped to this specific word
-                const mappedPage = wordEl.getAttribute('data-page');
-                if (currentPdfUrl && mappedPage) {
-                    pdfIframe.src = currentPdfUrl + '#page=' + mappedPage;
-                }
             }
         }
     });
@@ -527,6 +529,7 @@
         extractedPdfData = [];
         typeInput.disabled = false;
         manualText.value = '';
+        currentPageDisplay.innerText = "-";
         dropZone.innerHTML = `Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>`;
     });
 </script>
