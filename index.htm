@@ -92,12 +92,24 @@
         }
         .mod-btn.active { background-color: var(--text-primary); color: var(--bg-color); border-color: var(--text-primary); }
 
+        /* Text Display - Updated for 3 lines by default */
         #text-display {
-            font-size: 1.5rem; line-height: 2em; letter-spacing: 0.02em; min-height: 200px; flex-grow: 1;
-            overflow-y: auto; resize: vertical; margin-bottom: 30px; user-select: none;
-            padding: 20px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-color);
-            transition: all 0.3s ease;
+            font-size: 1.5rem; 
+            line-height: 1.8em; 
+            letter-spacing: 0.02em; 
+            height: calc(1.8em * 3 + 40px); /* Exactly 3 lines + padding */
+            min-height: calc(1.8em * 3 + 40px);
+            overflow-y: auto; 
+            resize: vertical; /* Allows user to drag it larger */
+            margin-bottom: 30px; 
+            user-select: none;
+            padding: 20px; 
+            border: 1px solid var(--border-color); 
+            border-radius: 4px; 
+            background-color: var(--bg-color);
+            transition: border-color 0.3s ease;
         }
+        #text-display:focus-within { border-color: var(--accent); }
         
         .word { margin-right: 0.4em; display: inline-block; cursor: pointer; padding: 0 2px; transition: all 0.2s ease; border-radius: 2px;}
         .word:hover { background-color: var(--border-color); }
@@ -159,7 +171,8 @@
                 <button id="btn-space" class="mod-btn">Auto-Advance</button>
             </div>
 
-            <div id="text-display"></div>
+            <div id="text-display" title="Drag the bottom right corner to resize"></div>
+            
             <input type="text" id="type-input" autocomplete="off" placeholder="Begin typing...">
             <button id="reset-btn" style="margin-top: 20px; align-self: flex-start; width: auto;">End Session</button>
         </div>
@@ -173,7 +186,6 @@
 </footer>
 
 <script>
-    // Initialize PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
     let words = [];
@@ -183,6 +195,7 @@
     let isPlaying = false;
     let totalTypedChars = 0;
     let totalErrors = 0;
+    let currentPdfUrl = null; // Store PDF URL for search jumping
 
     const setupZone = document.getElementById('setup-zone');
     const gameZone = document.getElementById('game-zone');
@@ -206,10 +219,9 @@
     const btnBionic = document.getElementById('btn-bionic');
     const btnSpace = document.getElementById('btn-space');
 
-    // Fixed Event Listeners for Drag and Drop
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('hover'); });
-    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('hover'); }); // Syntax error fixed here
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('hover'); });
     dropZone.addEventListener('drop', (e) => {
         e.preventDefault(); 
         dropZone.classList.remove('hover');
@@ -224,12 +236,10 @@
         dropZone.innerHTML = "Processing Document...";
         
         try {
-            // Display PDF in iframe
-            const fileURL = URL.createObjectURL(file);
-            pdfIframe.src = fileURL;
+            currentPdfUrl = URL.createObjectURL(file);
+            pdfIframe.src = currentPdfUrl;
             pdfPanel.style.display = 'block';
 
-            // Extract text
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = '';
@@ -237,17 +247,15 @@
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                // Improved extraction logic to prevent glued words
                 const pageText = textContent.items.map(item => item.str).join(' ');
                 fullText += pageText + ' ';
             }
             
-            // Clean up extra spaces
             manualText.value = fullText.replace(/\s+/g, ' ').trim();
             dropZone.innerHTML = `Loaded: ${file.name}<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">Replace file</span>`;
         } catch (error) {
             console.error(error);
-            dropZone.innerHTML = `Error loading PDF.<br><span style="font-size: 0.85rem; color: #d9534f; margin-top: 10px; display: inline-block;">The file may be encrypted or corrupted. Try pasting text manually.</span>`;
+            dropZone.innerHTML = `Error loading PDF.<br><span style="font-size: 0.85rem; color: #d9534f; margin-top: 10px; display: inline-block;">File may be encrypted or corrupted. Paste text manually.</span>`;
             pdfPanel.style.display = 'none';
         }
     }
@@ -277,7 +285,6 @@
     startBtn.addEventListener('click', () => {
         const text = manualText.value.trim();
         if (!text) return alert("Please input text or drop a PDF document.");
-        // Filter out empty strings caused by weird PDF formatting
         words = text.split(/\s+/).filter(w => w.length > 0);
         initGame();
     });
@@ -355,6 +362,7 @@
         }
     }
 
+    // PDF Click-to-Search Sync
     textDisplay.addEventListener('click', (e) => {
         const wordEl = e.target.closest('.word');
         if (wordEl) {
@@ -365,6 +373,14 @@
                 typeInput.classList.remove('error');
                 renderState();
                 typeInput.focus();
+
+                // If a PDF is active, force the viewer to search for this phrase
+                if (currentPdfUrl) {
+                    // Grab a small chunk of words (3 words) to make the search specific enough
+                    const searchPhrase = words.slice(index, index + 3).join(' ');
+                    // Update iframe src with search hash to trigger native jump
+                    pdfIframe.src = currentPdfUrl + '#search="' + encodeURIComponent(searchPhrase) + '"';
+                }
             }
         }
     });
@@ -374,7 +390,6 @@
         const ghostTyping = btnGhost.classList.contains('active');
         const targetWord = words[currentWordIndex];
         
-        // Failsafe: if we run out of words
         if (!targetWord) return;
 
         let typedText = typeInput.value;
@@ -449,6 +464,7 @@
         gameZone.style.display = 'none';
         pdfPanel.style.display = 'none';
         pdfIframe.src = '';
+        currentPdfUrl = null;
         typeInput.disabled = false;
         manualText.value = '';
         dropZone.innerHTML = `Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>`;
