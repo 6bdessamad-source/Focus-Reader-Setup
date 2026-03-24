@@ -61,6 +61,17 @@
         }
         #drop-zone:hover, #drop-zone.hover { border-color: var(--accent); color: var(--accent); }
         
+        /* PDF Page Options */
+        #pdf-options {
+            display: none; width: 100%; text-align: center; gap: 15px; align-items: center; justify-content: center;
+            padding: 15px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--panel-bg);
+        }
+        #start-page {
+            width: 70px; padding: 8px; background: transparent; color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 4px; text-align: center; font-family: 'Inter', sans-serif;
+        }
+        #start-page:focus { border-color: var(--accent); outline: none; }
+
         textarea { 
             width: 100%; height: 120px; padding: 15px; background: transparent; border: 1px solid var(--border-color); 
             border-radius: 4px; color: var(--text-primary); font-family: 'Inter', sans-serif; resize: vertical; outline: none; transition: 0.3s;
@@ -92,21 +103,11 @@
         }
         .mod-btn.active { background-color: var(--text-primary); color: var(--bg-color); border-color: var(--text-primary); }
 
-        /* Text Display - Updated for 3 lines by default */
         #text-display {
-            font-size: 1.5rem; 
-            line-height: 1.8em; 
-            letter-spacing: 0.02em; 
-            height: calc(1.8em * 3 + 40px); /* Exactly 3 lines + padding */
-            min-height: calc(1.8em * 3 + 40px);
-            overflow-y: auto; 
-            resize: vertical; /* Allows user to drag it larger */
-            margin-bottom: 30px; 
-            user-select: none;
-            padding: 20px; 
-            border: 1px solid var(--border-color); 
-            border-radius: 4px; 
-            background-color: var(--bg-color);
+            font-size: 1.5rem; line-height: 1.8em; letter-spacing: 0.02em; 
+            height: calc(1.8em * 3 + 40px); min-height: calc(1.8em * 3 + 40px);
+            overflow-y: auto; resize: vertical; margin-bottom: 30px; user-select: none;
+            padding: 20px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-color);
             transition: border-color 0.3s ease;
         }
         #text-display:focus-within { border-color: var(--accent); }
@@ -151,7 +152,14 @@
                 Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>
                 <input type="file" id="file-input" accept="application/pdf" style="display: none;">
             </div>
-            <textarea id="manual-text" placeholder="Paste manual text here..."></textarea>
+            
+            <div id="pdf-options">
+                <label style="color: var(--text-secondary); font-size: 0.9rem;">Start reading from page:</label>
+                <input type="number" id="start-page" min="1" value="1">
+                <span id="total-pages" style="color: var(--text-secondary); font-size: 0.9rem;">of ?</span>
+            </div>
+
+            <textarea id="manual-text" placeholder="Or paste manual text here..."></textarea>
             <button id="start-btn">Initialize Session</button>
         </div>
 
@@ -188,19 +196,26 @@
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    let words = [];
+    // Global Data Architecture
+    let extractedPdfData = []; // Stores objects: { text: "word", page: 1 }
+    let wordsData = []; // The filtered dataset currently in use
+    let words = []; // The flat string array used by the engine
+    
     let currentWordIndex = 0;
     let startTime = null;
     let timerInterval = null;
     let isPlaying = false;
     let totalTypedChars = 0;
     let totalErrors = 0;
-    let currentPdfUrl = null; // Store PDF URL for search jumping
+    let currentPdfUrl = null;
 
     const setupZone = document.getElementById('setup-zone');
     const gameZone = document.getElementById('game-zone');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+    const pdfOptions = document.getElementById('pdf-options');
+    const startPageInput = document.getElementById('start-page');
+    const totalPagesSpan = document.getElementById('total-pages');
     const manualText = document.getElementById('manual-text');
     const startBtn = document.getElementById('start-btn');
     const textDisplay = document.getElementById('text-display');
@@ -223,8 +238,7 @@
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('hover'); });
     dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('hover'); });
     dropZone.addEventListener('drop', (e) => {
-        e.preventDefault(); 
-        dropZone.classList.remove('hover');
+        e.preventDefault(); dropZone.classList.remove('hover');
         if (e.dataTransfer.files.length) handlePDF(e.dataTransfer.files[0]);
     });
     fileInput.addEventListener('change', (e) => {
@@ -242,21 +256,39 @@
 
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            let fullText = '';
             
+            extractedPdfData = [];
+            let fullTextForManual = '';
+            
+            // Map each word to its specific page number during extraction
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
                 const pageText = textContent.items.map(item => item.str).join(' ');
-                fullText += pageText + ' ';
+                
+                const pageWords = pageText.split(/\s+/).filter(w => w.length > 0);
+                pageWords.forEach(w => {
+                    extractedPdfData.push({ text: w, page: i });
+                });
+                
+                fullTextForManual += pageText + ' ';
             }
             
-            manualText.value = fullText.replace(/\s+/g, ' ').trim();
+            // Update UI
+            manualText.value = fullTextForManual.replace(/\s+/g, ' ').trim();
             dropZone.innerHTML = `Loaded: ${file.name}<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">Replace file</span>`;
+            
+            // Show PDF page options
+            pdfOptions.style.display = 'flex';
+            startPageInput.max = pdf.numPages;
+            startPageInput.value = 1;
+            totalPagesSpan.innerText = `of ${pdf.numPages}`;
+
         } catch (error) {
             console.error(error);
             dropZone.innerHTML = `Error loading PDF.<br><span style="font-size: 0.85rem; color: #d9534f; margin-top: 10px; display: inline-block;">File may be encrypted or corrupted. Paste text manually.</span>`;
             pdfPanel.style.display = 'none';
+            pdfOptions.style.display = 'none';
         }
     }
 
@@ -283,9 +315,29 @@
     }
 
     startBtn.addEventListener('click', () => {
-        const text = manualText.value.trim();
-        if (!text) return alert("Please input text or drop a PDF document.");
-        words = text.split(/\s+/).filter(w => w.length > 0);
+        const isPdfMode = extractedPdfData.length > 0;
+        wordsData = [];
+
+        if (isPdfMode) {
+            // Filter the data based on the selected starting page
+            const startPageNum = parseInt(startPageInput.value) || 1;
+            wordsData = extractedPdfData.filter(item => item.page >= startPageNum);
+            words = wordsData.map(item => item.text);
+            
+            if (words.length === 0) return alert("No text found from this page onward.");
+            
+            // Instantly sync iframe to the starting page
+            if (currentPdfUrl) {
+                pdfIframe.src = currentPdfUrl + '#page=' + startPageNum;
+            }
+        } else {
+            const text = manualText.value.trim();
+            if (!text) return alert("Please input text or drop a PDF document.");
+            words = text.split(/\s+/).filter(w => w.length > 0);
+            // Default page 1 for manual text
+            wordsData = words.map(w => ({ text: w, page: 1 }));
+        }
+
         initGame();
     });
 
@@ -319,6 +371,8 @@
             const span = document.createElement('span');
             span.className = 'word';
             span.id = `word-${index}`;
+            // Inject the calculated page number into the DOM
+            span.setAttribute('data-page', wordsData[index].page);
             textDisplay.appendChild(span);
         });
     }
@@ -359,10 +413,16 @@
         const currentWordEl = document.getElementById(`word-${currentWordIndex}`);
         if (currentWordEl) {
             currentWordEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Optional: Auto-sync PDF page as you type into new pages
+            // const currentPage = currentWordEl.getAttribute('data-page');
+            // if (currentPdfUrl && !pdfIframe.src.endsWith('#page=' + currentPage)) {
+            //     pdfIframe.src = currentPdfUrl + '#page=' + currentPage;
+            // }
         }
     }
 
-    // PDF Click-to-Search Sync
+    // Exact Page Click-to-Sync
     textDisplay.addEventListener('click', (e) => {
         const wordEl = e.target.closest('.word');
         if (wordEl) {
@@ -374,12 +434,10 @@
                 renderState();
                 typeInput.focus();
 
-                // If a PDF is active, force the viewer to search for this phrase
-                if (currentPdfUrl) {
-                    // Grab a small chunk of words (3 words) to make the search specific enough
-                    const searchPhrase = words.slice(index, index + 3).join(' ');
-                    // Update iframe src with search hash to trigger native jump
-                    pdfIframe.src = currentPdfUrl + '#search="' + encodeURIComponent(searchPhrase) + '"';
+                // Read the exact page number mapped to this specific word
+                const mappedPage = wordEl.getAttribute('data-page');
+                if (currentPdfUrl && mappedPage) {
+                    pdfIframe.src = currentPdfUrl + '#page=' + mappedPage;
                 }
             }
         }
@@ -463,8 +521,10 @@
         setupZone.style.display = 'flex';
         gameZone.style.display = 'none';
         pdfPanel.style.display = 'none';
+        pdfOptions.style.display = 'none';
         pdfIframe.src = '';
         currentPdfUrl = null;
+        extractedPdfData = [];
         typeInput.disabled = false;
         manualText.value = '';
         dropZone.innerHTML = `Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>`;
