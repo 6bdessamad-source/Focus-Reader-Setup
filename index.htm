@@ -19,11 +19,7 @@
             --error-text: #000000;
         }
 
-        * {
-            box-sizing: border-box;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border-color) var(--bg-color);
-        }
+        * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--border-color) var(--bg-color); }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -41,50 +37,23 @@
         ::-webkit-scrollbar-track { background: var(--bg-color); }
         ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
         
-        .main-wrapper {
-            display: flex;
-            gap: 30px;
-            width: 100%;
-            max-width: 1600px;
-            flex-grow: 1;
-        }
+        .main-wrapper { display: flex; gap: 30px; width: 100%; max-width: 1600px; flex-grow: 1; }
         
         .pdf-panel {
-            flex: 1;
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            display: none;
-            overflow: hidden;
+            flex: 1; background: var(--panel-bg); border: 1px solid var(--border-color);
+            border-radius: 4px; display: none; overflow: hidden;
         }
         .pdf-panel iframe { width: 100%; height: 100%; border: none; filter: grayscale(100%) contrast(1.2); }
 
         .game-panel {
-            flex: 1;
-            max-width: 900px;
-            background: var(--panel-bg);
-            padding: 40px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            display: flex;
-            flex-direction: column;
-            margin: 0 auto;
+            flex: 1; max-width: 900px; background: var(--panel-bg); padding: 40px;
+            border: 1px solid var(--border-color); border-radius: 4px; display: flex; flex-direction: column; margin: 0 auto;
         }
 
         #setup-zone { display: flex; flex-direction: column; gap: 20px; align-items: center; }
         h2 { font-weight: 400; font-size: 1.2rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 5px 0; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; width: 100%; text-align: center;}
         
-        /* New Introductory Text Styling */
-        .intro-text {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            line-height: 1.6;
-            margin-top: 0;
-            margin-bottom: 15px;
-            text-align: center;
-            max-width: 85%;
-            font-weight: 400;
-        }
+        .intro-text { font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 15px 0; text-align: center; max-width: 85%; font-weight: 400; }
         
         #drop-zone {
             border: 1px dashed var(--border-color); border-radius: 4px; padding: 50px;
@@ -93,17 +62,15 @@
         #drop-zone:hover, #drop-zone.hover { border-color: var(--accent); color: var(--accent); }
         
         textarea { 
-            width: 100%; height: 120px; padding: 15px; 
-            background: transparent; border: 1px solid var(--border-color); border-radius: 4px; 
-            color: var(--text-primary); font-family: 'Inter', sans-serif; resize: vertical; outline: none; transition: 0.3s;
+            width: 100%; height: 120px; padding: 15px; background: transparent; border: 1px solid var(--border-color); 
+            border-radius: 4px; color: var(--text-primary); font-family: 'Inter', sans-serif; resize: vertical; outline: none; transition: 0.3s;
         }
         textarea:focus { border-color: var(--accent); }
 
         button { 
             padding: 12px 24px; font-size: 0.9rem; letter-spacing: 0.05em; text-transform: uppercase;
-            background-color: transparent; color: var(--text-primary); 
-            border: 1px solid var(--border-color); border-radius: 2px; 
-            cursor: pointer; transition: all 0.3s ease; width: 100%;
+            background-color: transparent; color: var(--text-primary); border: 1px solid var(--border-color); 
+            border-radius: 2px; cursor: pointer; transition: all 0.3s ease; width: 100%;
         }
         button:hover { background-color: var(--text-primary); color: var(--bg-color); border-color: var(--text-primary); }
 
@@ -153,18 +120,8 @@
         #type-input:focus { border-color: var(--accent); }
         #type-input.error { background-color: var(--error-bg); color: var(--error-text); border-color: var(--error-bg); }
 
-        footer {
-            margin-top: auto;
-            padding-top: 40px;
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            letter-spacing: 0.05em;
-            line-height: 1.6;
-        }
-        footer span {
-            color: var(--text-secondary);
-        }
+        footer { margin-top: auto; padding-top: 40px; text-align: center; font-size: 0.8rem; color: var(--text-muted); letter-spacing: 0.05em; line-height: 1.6; }
+        footer span { color: var(--text-secondary); }
     </style>
 </head>
 <body>
@@ -177,9 +134,7 @@
     <div class="game-panel">
         <div id="setup-zone">
             <h2>Focus Reader</h2>
-            <p class="intro-text">
-                Transform passive reading into an active, tactile experience. Designed for deep engagement with dense texts, this tool paces your reading to your keystrokes—eliminating skimming and improving retention.
-            </p>
+            <p class="intro-text">Transform passive reading into an active, tactile experience. Designed for deep engagement with dense texts, this tool paces your reading to your keystrokes—eliminating skimming and improving retention.</p>
             <div id="drop-zone">
                 Drop PDF Document<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">or click to browse</span>
                 <input type="file" id="file-input" accept="application/pdf" style="display: none;">
@@ -218,6 +173,7 @@
 </footer>
 
 <script>
+    // Initialize PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
     let words = [];
@@ -250,11 +206,13 @@
     const btnBionic = document.getElementById('btn-bionic');
     const btnSpace = document.getElementById('btn-space');
 
+    // Fixed Event Listeners for Drag and Drop
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('hover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'); });
+    dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('hover'); }); // Syntax error fixed here
     dropZone.addEventListener('drop', (e) => {
-        e.preventDefault(); dropZone.classList.remove('hover');
+        e.preventDefault(); 
+        dropZone.classList.remove('hover');
         if (e.dataTransfer.files.length) handlePDF(e.dataTransfer.files[0]);
     });
     fileInput.addEventListener('change', (e) => {
@@ -262,23 +220,36 @@
     });
 
     async function handlePDF(file) {
-        if (file.type !== 'application/pdf') return alert('Please upload a PDF file.');
+        if (file.type !== 'application/pdf') return alert('Please upload a valid PDF file.');
         dropZone.innerHTML = "Processing Document...";
         
-        const fileURL = URL.createObjectURL(file);
-        pdfIframe.src = fileURL;
-        pdfPanel.style.display = 'block';
+        try {
+            // Display PDF in iframe
+            const fileURL = URL.createObjectURL(file);
+            pdfIframe.src = fileURL;
+            pdfPanel.style.display = 'block';
 
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(' ') + ' ';
+            // Extract text
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                // Improved extraction logic to prevent glued words
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + ' ';
+            }
+            
+            // Clean up extra spaces
+            manualText.value = fullText.replace(/\s+/g, ' ').trim();
+            dropZone.innerHTML = `Loaded: ${file.name}<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">Replace file</span>`;
+        } catch (error) {
+            console.error(error);
+            dropZone.innerHTML = `Error loading PDF.<br><span style="font-size: 0.85rem; color: #d9534f; margin-top: 10px; display: inline-block;">The file may be encrypted or corrupted. Try pasting text manually.</span>`;
+            pdfPanel.style.display = 'none';
         }
-        manualText.value = fullText.replace(/\s+/g, ' ').trim();
-        dropZone.innerHTML = `Loaded: ${file.name}<br><span style="font-size: 0.85rem; color: #555; margin-top: 10px; display: inline-block;">Replace file</span>`;
     }
 
     [btnGhost, btnSpace].forEach(btn => {
@@ -306,7 +277,8 @@
     startBtn.addEventListener('click', () => {
         const text = manualText.value.trim();
         if (!text) return alert("Please input text or drop a PDF document.");
-        words = text.split(/\s+/);
+        // Filter out empty strings caused by weird PDF formatting
+        words = text.split(/\s+/).filter(w => w.length > 0);
         initGame();
     });
 
@@ -401,6 +373,10 @@
         const ignoreSpace = btnSpace.classList.contains('active');
         const ghostTyping = btnGhost.classList.contains('active');
         const targetWord = words[currentWordIndex];
+        
+        // Failsafe: if we run out of words
+        if (!targetWord) return;
+
         let typedText = typeInput.value;
 
         if (ghostTyping && e.data !== null) {
